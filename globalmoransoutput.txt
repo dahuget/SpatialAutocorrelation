@@ -1,0 +1,64 @@
+> mi <- moran.test(PopDen, crd.lw, zero.policy = TRUE)
+> mi
+
+	Moran I test under randomisation
+
+data:  PopDen  
+weights: crd.lw    
+
+Moran I statistic standard deviate = 9.0328, p-value < 2.2e-16
+alternative hypothesis: greater
+sample estimates:
+Moran I statistic       Expectation          Variance 
+      0.739092892      -0.011764706       0.006909813 
+
+> moran.range <- function(lw) {
++   wmat <- listw2mat(lw)
++   return(range(eigen((wmat + t(wmat))/2)$values))
++ }
+> moran.range(crd.lw)
+[1] -1.479792  1.504245
+> mi$estimate[1]
+Moran I statistic 
+        0.7390929 
+
+> mi2 <- moran.test(OccDen, crd.lw, zero.policy = TRUE)
+> mi2
+
+	Moran I test under randomisation
+
+data:  OccDen  
+weights: crd.lw    
+
+Moran I statistic standard deviate = 8.571, p-value < 2.2e-16
+alternative hypothesis: greater
+sample estimates:
+Moran I statistic       Expectation          Variance 
+      0.688953757      -0.011764706       0.006683795 
+
+> mi3 <- moran.test(VacDen, crd.lw, zero.policy = TRUE)
+> mi3
+
+	Moran I test under randomisation
+
+data:  VacDen  
+weights: crd.lw    
+
+Moran I statistic standard deviate = 8.0786, p-value = 3.274e-16
+alternative hypothesis: greater
+sample estimates:
+Moran I statistic       Expectation          Variance 
+      0.594943716      -0.011764706       0.005640047 
+
+
+> mi$estimate[1]
+Moran I statistic 
+        0.5949437 
+> mi2$estimate[1]
+Moran I statistic 
+        0.6889538 
+> mi3$estimate[1]
+Moran I statistic 
+        0.5949437 
+> 
+

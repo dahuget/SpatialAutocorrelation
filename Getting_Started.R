@@ -33,8 +33,17 @@ census.16 <- census.16[,-12]
 census.16 <- census.16[,-grep("french", names(census.16))]
 
 #select columns we want by name
-census.16 <- census.16[,names(census.16) %in% c("Geographic_code", "Population_2016", "Total_private_dwellings_2016",
-                                                "Population_density_per_square_kilometre_2016")]
+census.16 <- census.16[,names(census.16) %in% c("Geographic_code", "Population_2016", "Land_area_in_square_kilometres_2016", "Total_private_dwellings_2016",
+                                                "Private_dwellings_occupied_by_usual_residents_2016", "Population_density_per_square_kilometre_2016")]
+
+#occupied dwelling density
+census.16$Private_dwelling_occupied_density_per_square_kilometre_2016 <- census.16$Private_dwellings_occupied_by_usual_residents_2016/census.16$Land_area_in_square_kilometres_2016
+
+#generalization of private dwelling vacancies
+census.16$Private_dwelling_vacancies_2016 <- census.16$Total_private_dwellings_2016 - census.16$Private_dwellings_occupied_by_usual_residents_2016
+
+#generalization of private dwelling vacancy density
+census.16$Private_dwelling_vacancy_density_per_square_kilometre_2016 <- census.16$Private_dwelling_vacancies_2016/census.16$Land_area_in_square_kilometres_2016
 
 #rename "Geographic_code" as "ADAUID" to match the dissemination shapefile
 names(census.16)[1] <- "ADAUID"
@@ -48,12 +57,26 @@ class(crd.data)
 summary(crd.data)
 
 #Create a choloropleth map of Population density per km2 in 2016
-#vector of population densities
+#vectors of population densities & private dwelling vacancies 
 PopDen <- crd.data$Population_density_per_square_kilometre_2016
-
+OccDen <- crd.data$Private_dwelling_occupied_density_per_square_kilometre_2016
+VacDen <- crd.data$Private_dwelling_vacancy_density_per_square_kilometre_2016
 #create a list of 6 colours
 shades <- auto.shading(PopDen, n=6, cols = brewer.pal(6, 'Oranges'))
+shades.vacancy <- auto.shading(VacDen, n=6, cols = brewer.pal(6, 'Blues'))
+shades.occupied <- auto.shading(OccDen, n=6, cols = brewer.pal(6, 'Purples'))
 #map the data with associated colours
-choropleth(crd.data, PopDen, shades)
+choropleth(crd.data, PopDen, shades, main = "Population Density for Capital and Cowichan Regional Districts")
+choropleth(crd.data, VacDen, shades.vacancy, main = "Vacancy Density for Capital and Cowichan Regional Districts")
+choropleth(crd.data, OccDen, shades.occupied, main = "Occupied Density for Capital and Cowichan Regional Districts")
+#title(title.text)
 #add a legend
-choro.legend(3864000, 1965000, shades)
+legend_coor <- locator(1)
+legend_coor
+legend.text = expression(paste("Population Density per km"^"2"," in 2016"))
+legend.vacancy.text = expression(paste("Vacancy Density per km"^"2"," in 2016"))
+legend.occupied.text = expression(paste("Occupied Density per km"^"2"," in 2016"))
+choro.legend(3837035, 1959193, shades, title = legend.text, cex = 0.5)
+choro.legend(3653863, 2047977, shades.vacancy, title = legend.vacancy.text, cex = 0.45)
+choro.legend(3653863, 2047977, shades.occupied, title = legend.occupied.text, cex = 0.45)
+
