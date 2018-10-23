@@ -35,7 +35,7 @@ census.16 <- census.16[,-grep("french", names(census.16))]
 #select columns we want by name
 census.16 <- census.16[,names(census.16) %in% c("Geographic_code", "Population_2016", "Land_area_in_square_kilometres_2016", "Total_private_dwellings_2016",
                                                 "Private_dwellings_occupied_by_usual_residents_2016", "Population_density_per_square_kilometre_2016")]
-
+#add new columns to dataframe
 #occupied dwelling density
 census.16$Private_dwelling_occupied_density_per_square_kilometre_2016 <- census.16$Private_dwellings_occupied_by_usual_residents_2016/census.16$Land_area_in_square_kilometres_2016
 

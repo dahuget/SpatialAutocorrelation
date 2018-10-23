@@ -20,3 +20,7 @@ moran.range(crd.lw)
 mi$estimate[1]
 mi2$estimate[1]
 mi3$estimate[1]
+z.i=mi2$estimate[1]-mi2$estimate[2]/(mi2$estimate[3])
+z.i
+z.i=mi3$estimate[1]-mi3$estimate[2]/(mi3$estimate[3])
+z.i

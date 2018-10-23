@@ -10,7 +10,7 @@ crd.nb2 <- poly2nb(crd.data, queen = FALSE)
 #Now, create a new map that overlays the rook neighbors file (in yellow) onto the queen neighbors file (in red).
 plot(crd.data, border = "lightgrey")
 plot(crd.nb, coordinates(crd.data), add = TRUE, col = "red")
-plot(crd.nb2, coordinates(crd.data), add = TRUE, col = "yellow", lwd = 2)
+plot(crd.nb2, coordinates(crd.data), add = TRUE, col = "yellow", lwd = 2, lty = "dashed")
 
 #Create the spatial weights neighbour list using the queen's case
 crd.lw <- nb2listw(crd.nb, zero.policy = TRUE, style = "W")

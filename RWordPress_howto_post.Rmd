@@ -1,0 +1,181 @@
+---
+title: "How To Use R and Census Data"
+author: "Dana Huget"
+date: '2018-10-16'
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Getting Started
+Download the 2016 census data AGGREGATE DISSEMINATION AREA shapefile [here](http://www12.statcan.gc.ca/census-recensement/2011/geo/bound-limit/bound-limit-2016-eng.cfm) and the AGGREGATE DISSEMINATION AREA population and dwelling count csv [here](http://www12.statcan.gc.ca/census-recensement/2016/dp-pd/hlt-fst/pd-pl/comprehensive.cfm). Then, in R Studio:
+```
+#import libraries
+library(plyr)
+library(dplyr)
+library(spdep)
+library(GISTools)
+library(raster)
+library(maptools)
+```
+Access the dissemination area shapefile and select the areas of interest (Capital and Cowichan Valley regions) and get the census population data
+```
+dissem <- shapefile("lada000b16a_e.shp")
+dissem.sub <- dissem[dissem$CDNAME %in% c("Capital", "Cowichan Valley"),]
+census.16 <- read.csv("T1701EN.csv", check.names = FALSE)
+```
+Clean up the data
+```
+#fix the column names
+#remove punctuation and spaces and replace with "_"
+#names(census.16) <- gsub("%", "Percent", names(census.16))
+names(census.16) <- gsub("[[:space:]]|[[:punct:]]", "_", names(census.16), fixed = FALSE)
+names(census.16) <- gsub("__", "_", names(census.16), fixed = TRUE)
+names(census.16) <- gsub("__", "_", names(census.16), fixed = TRUE)
+census.16 <- census.16[,-12]
+#remove columns with "french"
+census.16 <- census.16[,-grep("french", names(census.16))]
+```
+Select the columns we want to work with and create new columns for occupied dwelling density analysis as well as a generalization for the dwelling vacancy density analysis
+```
+census.16 <- census.16[,names(census.16) %in% c("Geographic_code", "Population_2016", "Land_area_in_square_kilometres_2016", "Total_private_dwellings_2016", "Private_dwellings_occupied_by_usual_residents_2016", "Population_density_per_square_kilometre_2016")]
+
+#add new columns to dataframe
+#for occupied dwelling density
+census.16$Private_dwelling_occupied_density_per_square_kilometre_2016 <- census.16$Private_dwellings_occupied_by_usual_residents_2016/census.16$Land_area_in_square_kilometres_2016
+
+#for generalization of private dwelling vacancies
+census.16$Private_dwelling_vacancies_2016 <- census.16$Total_private_dwellings_2016 - census.16$Private_dwellings_occupied_by_usual_residents_2016
+
+#for dwelling vacancy density
+census.16$Private_dwelling_vacancy_density_per_square_kilometre_2016 <- census.16$Private_dwelling_vacancies_2016/census.16$Land_area_in_square_kilometres_2016
+```
+Now we want to give our data some geographic context so we can visualize the data on maps. We do this by merging the cleaned up table data with the area shapefile using a common attribute (in this case 'Geographic_code' and 'ADAUID' are the common attribute).
+```
+#rename "Geographic_code" as "ADAUID" to match the dissemination shapefile
+names(census.16)[1] <- "ADAUID"
+#now merge with the shapefile based on dissemination ID
+crd.data <- merge(dissem.sub, census.16, by = "ADAUID")
+#remove NA
+crd.data <- crd.data[!is.na(crd.data$Population_2016),]
+```
+`crd.data` is now our working dataset, class `SpatialPolygonsDataFrame`, and it now includes the census data as attributes! You can see a printout of a summary of the data (including the min/max coordinates, projection, attributes, and min/max/median/mean statistics for the population, dwelling, and density columns) with the the commands:
+```
+class(crd.data)
+summary(crd.data)
+```
+
+#### Creating Choropleth Maps
+Create a choloropleth map of occupied dwelling density and of dwelling vacancy density per km^2^ in 2016 using vectors of these densities (the columns from `crd.data`) so that you can visualize the geographic spread of dwellings and add informative colours, titles, and legends to your maps.
+```
+#vectors 
+OccDen <- crd.data$Private_dwelling_occupied_density_per_square_kilometre_2016
+VacDen <- crd.data$Private_dwelling_vacancy_density_per_square_kilometre_2016
+#create a list of 6 colours
+shades.vacancy <- auto.shading(VacDen, n=6, cols = brewer.pal(6, 'Blues'))
+shades.occupied <- auto.shading(OccDen, n=6, cols = brewer.pal(6, 'Purples'))
+#format title text
+legend.vacancy.text = expression(paste("Vacancy Density per km"^"2"," in 2016"))
+legend.occupied.text = expression(paste("Occupied Density per km"^"2"," in 2016"))
+#select a location on the map for your legend (otherwise the legend may overlay on your plot by default)
+legend_coor <- locator(1)
+#print out the coordinates to use below
+legend_coor
+#map the data with associated colours, titles, and legends
+choropleth(crd.data, OccDen, shades.occupied, main = "Occupied Density for Capital and Cowichan Regional Districts")
+choro.legend(3653863, 2047977, shades.occupied, title = legend.occupied.text, cex = 0.45)
+choropleth(crd.data, VacDen, shades.vacancy, main = "Vacancy Density for Capital and Cowichan Regional Districts")
+choro.legend(3653863, 2047977, shades.vacancy, title = legend.vacancy.text, cex = 0.45)
+```
+
+###Create Spatial Neighbourhood Weights Matrix ###
+```
+#queen's neighbour
+crd.nb <- poly2nb(crd.data)
+
+plot(crd.data)
+plot(crd.nb, coordinates(crd.data), add = TRUE, col = "red")
+
+#rooks neighbour
+crd.nb2 <- poly2nb(crd.data, queen = FALSE)
+#Now, create a new map that overlays the rook neighbors file (in yellow) onto the queen neighbors file (in red).
+plot(crd.data, border = "lightgrey")
+plot(crd.nb, coordinates(crd.data), add = TRUE, col = "red")
+plot(crd.nb2, coordinates(crd.data), add = TRUE, col = "yellow", lwd = 2)
+
+#Create the spatial weights neighbour list using the queen's case
+crd.lw <- nb2listw(crd.nb, zero.policy = TRUE, style = "W")
+print.listw(crd.lw, zero.policy = TRUE)
+
+###Create lagged Means Map###
+#Look at population density per km2
+#lagged means
+PopDen.lagged.means = lag.listw(crd.lw, PopDen, zero.policy = TRUE)
+OccDen.lagged.means = lag.listw(crd.lw, OccDen, zero.policy = TRUE)
+VacDen.lagged.means = lag.listw(crd.lw, VacDen, zero.policy = TRUE)
+#Map the lagged means using a new shading object called shades2
+shades2 <- auto.shading(PopDen.lagged.means, n=6, cols = brewer.pal(6, 'Oranges'))
+shades2.occupied <- auto.shading(OccDen.lagged.means, n=6, cols = brewer.pal(6, 'Purples'))
+shades2.vacancy <- auto.shading(VacDen.lagged.means, n=6, cols = brewer.pal(6, 'Blues'))
+choropleth(crd.data, PopDen.lagged.means,shades2, main = "Lagged Means Population Density for Capital and Cowichan Regional Districts")
+choropleth(crd.data, OccDen.lagged.means,shades2.occupied, main = "Lagged Means Occupied Density for Capital and Cowichan Regional Districts")
+choropleth(crd.data, VacDen.lagged.means,shades2.vacancy, main = "Lagged Means Vacancy Density for Capital and Cowichan Regional Districts")
+#legend_coor <- locator(1)
+choro.legend(3837035, 1959193, shades2, title = legend.text, cex = 0.5)
+choro.legend(3653863, 2047977, shades2.occupied, title = legend.occupied.text, cex = 0.45)
+choro.legend(3653863, 2047977, shades2.vacancy, title = legend.vacancy.text, cex = 0.45)
+#choro.legend(3864000, 1965000, shades2)
+```
+Moran's I Test
+```
+#Moran's I Test
+#Again use the PopDen vector
+mi <- moran.test(PopDen, crd.lw, zero.policy = TRUE)
+mi
+mi2 <- moran.test(OccDen, crd.lw, zero.policy = TRUE)
+mi2
+mi3 <- moran.test(VacDen, crd.lw, zero.policy = TRUE)
+mi3
+
+#To contextualize your Moran's I value, retrieve range of potential Moran's I values.
+moran.range <- function(lw) {
+  wmat <- listw2mat(lw)
+  return(range(eigen((wmat + t(wmat))/2)$values))
+}
+moran.range(crd.lw)
+
+#Perform the Z-test
+#You can get the necessary values from your mi object resulting from your Moran's I test above.
+#For example, the Moran's I value is the first value in the output mi, so you call mi$estimate[1] to get the value.
+mi$estimate[1]
+mi2$estimate[1]
+mi3$estimate[1]
+```
+asdf
+local morans
+```
+#Local Moran's I
+lisa.occupied.test <- localmoran(OccDen, crd.lw)
+lisa.occupied.test
+lisa.vacancy.test <- localmoran(VacDen, crd.lw)
+lisa.vacancy.test
+#Create a choropleth map of the LISA values.
+lisa.occupied.shades <- auto.shading(c(lisa.occupied.test[,1],-lisa.occupied.test[,1]),cols=brewer.pal(5,"PRGn"))
+choropleth(crd.data, lisa.test[,1],shading=lisa.occupied.shades, main="Local Moran's I for Occupied Dwelling Density")
+lisa.vacancy.shades <- auto.shading(c(lisa.vacancy.test[,1],-lisa.vacancy.test[,1]),cols=brewer.pal(5,"PRGn"))
+choropleth(crd.data, lisa.test[,1],shading=lisa.vacancy.shades, main="Local Moran's I for Vacancy Dwelling Density")
+choro.legend(3653863, 2047977,lisa.occupied.shades,fmt="%6.2f", cex=0.45, title="LISA Values")
+choro.legend(3653863, 2047977,lisa.vacancy.shades,fmt="%6.2f", cex=0.45, title="LISA Values")
+
+#Create a Moran's I scatterplot
+moran.plot(main="Moran's I",OccDen, crd.lw, zero.policy=NULL, spChk=NULL, labels=NULL, xlab="Occupied Density", 
+           ylab="Spatially Lagged Occupied Density", quiet=NULL)
+moran.plot(main="Moran's I",VacDen, crd.lw, zero.policy=NULL, spChk=NULL, labels=NULL, xlab="Vacancy Density", 
+           ylab="Spatially Lagged Vacancy Density", quiet=NULL)
+
+```
+asdf
