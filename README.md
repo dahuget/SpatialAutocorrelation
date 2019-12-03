@@ -1,2 +1,1 @@
-# geog418-518-a3
-Geog 418/518 Assignment 3 Code Project contains code to complete Assignment 2 in Geog 418/518
+a how-to blog explaing the process of spatial analysis of Canadian socioeconomic census data using R, see the full post [here](https://dahuget.home.blog/2019/05/27/analyzing-canadian-census-data/)
